@@ -1,6 +1,10 @@
 package djia_constituent_scraper
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 import (
 	"fmt"
@@ -8,14 +12,18 @@ import (
 )
 
 type DJIAConstituent struct {
-	Ticker          string `json:"ticker"`
-	Company         string `json:"company"`
-	GICSSector      string `json:"gicsSector"`
-	GICSSubIndustry string `json:"gicsSubIndustry"`
+	Ticker          string    `json:"ticker"`
+	Exchange        string    `json:"exchange"`
+	Company         string    `json:"company"`
+	GICSSector      string    `json:"gicsSector"`
+	GICSSubIndustry string    `json:"gicsSubIndustry"`
+	DateAdded       time.Time `json:"dateAdded"`
+	Notes           string    `json:"notes"`
+	Weighting       float64   `json:"weighting"`
 }
 
-func (d *DJIAConstituent) String() string {
-	return fmt.Sprintf("%s %s %s %s\n", d.Ticker, d.Company, d.GICSSector, d.GICSSubIndustry)
+func (d DJIAConstituent) String() string {
+	return fmt.Sprintf("%s %s %s %s %s %s %s %f\n", d.Ticker, d.Exchange, d.Company, d.GICSSector, d.GICSSubIndustry, d.DateAdded, d.Notes, d.Weighting)
 }
 
 // ScrapeDJIA scrapes the DJIA from https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average (probably not the best source)
@@ -29,9 +37,9 @@ func ScrapeDJIA() ([]DJIAConstituent, error) {
 	c.OnHTML("table#constituents", func(e *colly.HTMLElement) {
 		// parse the columns headers to figure out indexes of the columns we want
 		e.ForEach("tbody", func(i int, el *colly.HTMLElement) {
-			// header
 			el.ForEach("tr", func(rowIndex int, el *colly.HTMLElement) {
 				if rowIndex == 0 {
+					// parse header, creating a map of header name to column index
 					el.ForEach("th", func(headerIndex int, el *colly.HTMLElement) {
 						header := strings.TrimSpace(strings.TrimSuffix(el.Text, "\n"))
 						headerMap[header] = headerIndex
@@ -41,12 +49,32 @@ func ScrapeDJIA() ([]DJIAConstituent, error) {
 					ticker := el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Symbol"]+1))
 
 					if ticker != "" {
-						indexConstituent := DJIAConstituent{
+
+						constituent := DJIAConstituent{
 							Ticker:     ticker,
+							Exchange:   el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Exchange"]+1)),
 							Company:    el.ChildText(fmt.Sprintf("th:nth-child(%d)", headerMap["Company"]+1)),
 							GICSSector: el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Industry"]+1)),
+							Notes:      el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Notes"]+1)),
 						}
-						constituents = append(constituents, indexConstituent)
+
+						dateAdded, err := time.Parse(time.DateOnly, el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Date added"]+1)))
+
+						if err == nil {
+							constituent.DateAdded = dateAdded
+						}
+
+						weightingRaw := el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Index weighting"]+1))
+
+						if weightingRaw != "" {
+							weighting, err := strconv.ParseFloat(strings.TrimSuffix(weightingRaw, "%"), 64)
+
+							if err == nil {
+								constituent.Weighting = weighting / 100
+							}
+						}
+
+						constituents = append(constituents, constituent)
 					}
 				}
 			})

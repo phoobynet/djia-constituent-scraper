@@ -1,13 +1,20 @@
 package djia_constituent_scraper
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestScrapeDJIA(t *testing.T) {
-	actual, err := ScrapeDJIA()
+	constituents, err := ScrapeDJIA()
 
 	if err != nil {
 		t.Errorf("ScrapeDJIA() returned an error: %s", err)
 	}
 
-	t.Log(actual)
+	if len(constituents) > 0 {
+		t.Logf("Found %d constituents", len(constituents))
+		t.Logf("First constituent: %s", constituents[0])
+	} else {
+		t.Fatal("No constituents found")
+	}
 }
