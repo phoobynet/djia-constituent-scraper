@@ -1,6 +1,7 @@
 package djia_constituent_scraper
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -12,18 +13,27 @@ import (
 )
 
 type DJIAConstituent struct {
-	Ticker          string    `json:"ticker"`
-	Exchange        string    `json:"exchange"`
-	Company         string    `json:"company"`
-	GICSSector      string    `json:"gicsSector"`
-	GICSSubIndustry string    `json:"gicsSubIndustry"`
-	DateAdded       time.Time `json:"dateAdded"`
-	Notes           string    `json:"notes"`
-	Weighting       float64   `json:"weighting"`
+	Ticker    string    `json:"ticker"`
+	Exchange  string    `json:"exchange"`
+	Company   string    `json:"company"`
+	Industry  string    `json:"industry"`
+	DateAdded time.Time `json:"dateAdded"`
+	Notes     string    `json:"notes"`
+	Weighting float64   `json:"weighting"`
 }
 
 func (d DJIAConstituent) String() string {
-	return fmt.Sprintf("%s %s %s %s %s %s %s %f\n", d.Ticker, d.Exchange, d.Company, d.GICSSector, d.GICSSubIndustry, d.DateAdded, d.Notes, d.Weighting)
+	return fmt.Sprintf("%s %s %s %s %s %.2f%%\n", d.Ticker, d.Exchange, d.Company, d.Industry, d.DateAdded, d.Weighting*100)
+}
+
+func (d DJIAConstituent) JSON() (string, error) {
+	j, err := json.MarshalIndent(d, "", "  ")
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
 }
 
 // ScrapeDJIA scrapes the DJIA from https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average (probably not the best source)
@@ -51,11 +61,11 @@ func ScrapeDJIA() ([]DJIAConstituent, error) {
 					if ticker != "" {
 
 						constituent := DJIAConstituent{
-							Ticker:     ticker,
-							Exchange:   el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Exchange"]+1)),
-							Company:    el.ChildText(fmt.Sprintf("th:nth-child(%d)", headerMap["Company"]+1)),
-							GICSSector: el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Industry"]+1)),
-							Notes:      el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Notes"]+1)),
+							Ticker:   ticker,
+							Exchange: el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Exchange"]+1)),
+							Company:  el.ChildText(fmt.Sprintf("th:nth-child(%d)", headerMap["Company"]+1)),
+							Industry: el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Industry"]+1)),
+							Notes:    el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Notes"]+1)),
 						}
 
 						dateAdded, err := time.Parse(time.DateOnly, el.ChildText(fmt.Sprintf("td:nth-child(%d)", headerMap["Date added"]+1)))
