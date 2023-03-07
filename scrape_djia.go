@@ -14,6 +14,10 @@ type DJIAConstituent struct {
 	GICSSubIndustry string `json:"gicsSubIndustry"`
 }
 
+func (d *DJIAConstituent) String() string {
+	return fmt.Sprintf("%s %s %s %s\n", d.Ticker, d.Company, d.GICSSector, d.GICSSubIndustry)
+}
+
 // ScrapeDJIA scrapes the DJIA from https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average (probably not the best source)
 func ScrapeDJIA() ([]DJIAConstituent, error) {
 	c := colly.NewCollector()
